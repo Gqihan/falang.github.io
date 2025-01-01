@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>焕彩珐琅--掐丝珐琅数字化制作流程</title>
+    <style>
+        body {
+            background-image: url('back_ground.png'); /* 替换为本地图片路径 */
+            background-size: cover; /* 图片覆盖整个页面 */
+            background-position: center center; /* 居中对齐 */
+            background-attachment: fixed; /* 固定背景 */
+            font-family: Arial, sans-serif;
+            margin: 0;
+            height: 100vh; /* 使页面高度填满视口 */
+        }
+
+       
+        
+        /* 固定控制栏 */
+        #controls {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: #bcbf8c;
+            padding: 10px 0;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            z-index: 1000; /* 确保控制栏在最上层 */
+            display: flex; /* 使用 Flexbox */
+            justify-content: center; /* 水平居中对齐 */
+            align-items: center; /* 垂直居中对齐 */
+            gap: 10px; /* 按钮之间的间隔 */
+        }
+        #controls input[type="file"],
+        #controls input[type="color"],
+        #controls button {
+            margin: 0 5px;
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        button {
+            margin: 0 5px;
+        }
+
+        /* 画布容器，留出顶部空隙防止被控制栏遮挡 */
+        #canvasContainer {
+            margin-top: 70px; /* 为了不被固定的控制栏遮挡，设置顶部边距 */
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+         /* 设置画布样式，背景为渐变颜色 */
+         #canvas {
+            background:#F2E4CE;
+             /* linear-gradient(to right, #F2E4CE, #b1a48f); 渐变背景 */
+            border: 1px solid #000;
+            cursor: crosshair;
+            display: block;
+            margin: 0 auto;
+        }
+
+        #burnStatus {
+            display: none; /* 默认隐藏 */
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        #comparison {
+            display: none;
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .image-container {
+    text-align: center;
+    margin-bottom: 20px; /* 给图片下方留出空隙 */
+}
+
+.image-container img {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid #ccc;
+    margin-bottom: 10px; /* 图片底部增加间距，防止图片和文本贴得太近 */
+}
+
+/* 图像画廊样式调整 */
+#imageGallery {
+    position: fixed;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    width: 150px;
+    background-color: rgba(176, 165, 119, 0.8);
+    padding: 10px;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.3);
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* 画廊标题样式 */
+#imageGallery h3 {
+    text-align: center;
+    font-size: 16px;
+    color: #0a0909;
+    margin-bottom: 10px;
+    padding: 5px;
+    font-weight: bold;
+}
+
+/* 图片缩略图容器样式 */
+.thumbnail-container {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+/* 缩略图样式 */
+.image-thumbnail {
+    width: 80px;
+    height: 80px;
+    cursor: pointer;
+    display: block;
+    margin: 0 auto 5px auto;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    object-fit: cover;
+}
+
+/* 缩略图标题样式 */
+.thumbnail-title {
+    display: block;
+    text-align: center;
+    font-size: 14px;
+    color: #333;
+    margin-top: 5px;
+    padding: 0 5px;
+}
+    </style>
+</head>
+<body>
+
+<!-- 添加背景音乐 -->
+<audio id="background-music" loop autoplay>
+    
+    <source src="music.ogg" type="audio/ogg">
+</audio>
+
+<div id="controls">
+    <input type="file" id="upload" accept="image/*">
+    <input type="color" id="colorPicker" value="#000000">
+    <button id="paintBtn">涂鸦笔</button>
+    <button id="fillBtn">填充笔</button>
+    <button id="eraserBtn">擦除</button>
+    <button id="undoBtn">撤回</button>
+    <button id="saveBtn">保存图像</button>
+    <button id="closeWireBtn">掐丝</button>
+    <button id="burnBtn">烧制</button>
+    <!-- 推荐颜色按钮 -->
+    <button id="color1Btn" style="background-color: #1E8449;">孔雀绿</button>
+    <button id="color2Btn" style="background-color: #1E90FF;">景泰蓝</button>
+    <button id="color3Btn" style="background-color: #D73D3D;">朱雀红</button>
+</div>
+
+<div id="canvasContainer">
+    <canvas id="canvas" width="800" height="600"></canvas>
+    <div id="burnStatus">烧制中...</div>
+</div>
+    
+<div id="comparison">
+    <div class="image-container">
+        <h3>烧制前</h3>
+        <img id="beforeImage" alt="烧制前">
+    </div>
+    <div class="image-container">
+        <h3>烧制后</h3>
+        <img id="afterImage" alt="烧制后">
+    </div>
+</div>
+
+<div id="imageGallery">
+    <h3>经典珐琅器线稿</h3>
+    <div class="thumbnail-container">
+        <img src="1.jpg" alt="图片1" class="image-thumbnail">
+        <span class="thumbnail-title">图片1</span>
+    </div>
+    <div class="thumbnail-container">
+        <img src="2.jpg" alt="图片2" class="image-thumbnail">
+        <span class="thumbnail-title">图片2</span>
+    </div>
+    <div class="thumbnail-container">
+        <img src="3.png" alt="图片3" class="image-thumbnail">
+        <span class="thumbnail-title">掐丝珐琅缠枝莲纹琮式瓶</span>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const upload = document.getElementById('upload');
+    const colorPicker = document.getElementById('colorPicker');
+    const paintBtn = document.getElementById('paintBtn');
+    const fillBtn = document.getElementById('fillBtn');
+    const eraserBtn = document.getElementById('eraserBtn');
+    const undoBtn = document.getElementById('undoBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const closeWireBtn = document.getElementById('closeWireBtn');
+    const burnBtn = document.getElementById('burnBtn');
+    const burnStatus = document.getElementById('burnStatus');
+    const comparison = document.getElementById('comparison');
+    const beforeImage = document.getElementById('beforeImage');
+    const afterImage = document.getElementById('afterImage');
+
+    const color1Btn = document.getElementById('color1Btn');
+    const color2Btn = document.getElementById('color2Btn');
+    const color3Btn = document.getElementById('color3Btn');
+     // JavaScript部分保持不变，直接加载背景音乐
+    const backgroundMusic = document.getElementById('background-music');
+    
+    // 可以控制音量（可选）
+    backgroundMusic.volume = 0.3; // 设置音量为10%，根据需要调整
+    backgroundMusic.loop = true; // 设置为循环播放
+    
+    // 如果你需要给用户提供控制音量的功能
+    // 可以在控制栏添加音量调节的控件：
+    const volumeControl = document.createElement('input');
+    volumeControl.type = 'range';
+    volumeControl.min = '0';
+    volumeControl.max = '1';
+    volumeControl.step = '0.01';
+    volumeControl.value = '0.1'; // 初始音量
+    volumeControl.style.margin = '0 5px';
+    volumeControl.addEventListener('input', (e) => {
+        backgroundMusic.volume = e.target.value;
+    });
+
+    // 将音量控制器添加到控制栏中
+    const controls = document.getElementById('controls');
+    const volumeLabel = document.createElement('label');
+    volumeLabel.textContent = '音量: ';
+    controls.appendChild(volumeLabel);
+    controls.appendChild(volumeControl);
+
+    // 音乐控制函数
+    function controlBackgroundMusic() {
+        const musicState = localStorage.getItem('musicState');
+        if (musicState === 'playing') {
+            backgroundMusic.play();  // 恢复播放
+        } else {
+            backgroundMusic.pause(); // 停止播放
+        }
+    }
+
+    // 音乐播放状态变化时存储状态
+    backgroundMusic.addEventListener('play', () => {
+        localStorage.setItem('musicState', 'playing');
+    });
+
+    backgroundMusic.addEventListener('pause', () => {
+        localStorage.setItem('musicState', 'paused');
+    });
+
+    // 页面加载时检查并控制音乐播放
+    window.addEventListener('load', controlBackgroundMusic);
+
+    const imageGallery = document.getElementById('imageGallery');
+    const images = imageGallery.querySelectorAll('.image-thumbnail');
+
+
+    let isMouseDown = false;
+    let isBurning = false;
+    let mode = 'paint'; // 模式：'paint', 'erase', 'fill'
+    let img = new Image();
+    const history = [];
+    const maxHistoryLength = 20;
+
+
+    let currentColorGradient = [];
+
+    // 颜色渐变路径定义
+    const gradients = {
+        '孔雀绿': [
+            { r: 30, g: 132, b: 73 },  // 初始孔雀绿
+            { r: 0, g: 0, b: 0 },      // 黑色
+            { r: 0, g: 128, b: 0 },    // 深绿色
+            { r: 144, g: 238, b: 144 } // 浅绿色
+        ],
+        '景泰蓝': [
+            { r: 30, g: 132, b: 73 },  // 初始景泰蓝
+            { r: 255, g: 0, b: 0 },    // 红色
+            { r: 0, g: 255, b: 0 },    // 绿色
+            { r: 0, g: 255, b: 255 },  // 青色
+            { r: 135, g: 206, b: 235 } // 浅蓝色
+        ],
+        '朱雀红': [
+            { r: 215, g: 61, b: 61 },  // 初始朱雀红
+            { r: 0, g: 0, b: 0 },      // 黑色
+            { r: 139, g: 0, b: 0 },    // 深红
+            { r: 255, g: 0, b: 0 },    // 红色
+            { r: 255, g: 99, b: 71 }   // 浅红色
+        ]
+    };
+
+    let currentStep = 0;
+
+    function saveHistory() {
+        if (history.length >= maxHistoryLength) history.shift();
+        history.push(canvas.toDataURL());
+    }
+
+    function undo() {
+        if (history.length > 0) {
+            const lastState = history.pop();
+            const img = new Image();
+            img.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+            };
+            img.src = lastState;
+        }
+    }
+
+    upload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            img = new Image();
+            img.onload = function() {
+                saveHistory();
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+            }
+            img.src = event.target.result;
+        }
+        reader.readAsDataURL(file);
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+        if (isBurning) return;
+        isMouseDown = true;
+        saveHistory();
+        if (mode === 'paint' || mode === 'erase') drawAt(e);
+        else if (mode === 'fill') fillAt(e);
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (isMouseDown && (mode === 'paint' || mode === 'erase') && !isBurning) drawAt(e);
+    });
+
+    canvas.addEventListener('mouseup', () => {
+        isMouseDown = false;
+        ctx.beginPath();
+    });
+
+    function drawAt(e) {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        if (mode === 'paint') {
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = colorPicker.value;
+            ctx.lineCap = 'round';
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        } else if (mode === 'erase') {
+            ctx.lineWidth = 20;
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineCap = 'round';
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+    }
+
+    function fillAt(e) {
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.floor(e.clientX - rect.left);
+        const y = Math.floor(e.clientY - rect.top);
+        const fillColor = hexToRgba(colorPicker.value);
+
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
+        const targetColor = getColorAtPixel(data, x, y);
+
+        const tolerance = 32;
+
+        if (!colorsMatch(targetColor, fillColor, tolerance)) {
+            floodFill(data, x, y, targetColor, fillColor, canvas.width, canvas.height, tolerance);
+            ctx.putImageData(imgData, 0, 0);
+        }
+    }
+
+    function hexToRgba(hex) {
+        const bigint = parseInt(hex.slice(1), 16);
+        const r = (bigint >> 16) & 255;
+        const g = (bigint >> 8) & 255;
+        const b = bigint & 255;
+        return { r, g, b, a: 255 };
+    }
+
+    function getColorAtPixel(data, x, y) {
+        const index = (y * canvas.width + x) * 4;
+        return {
+            r: data[index],
+            g: data[index + 1],
+            b: data[index + 2],
+            a: data[index + 3]
+        };
+    }
+
+    function colorsMatch(a, b, tolerance) {
+        return Math.abs(a.r - b.r) <= tolerance &&
+            Math.abs(a.g - b.g) <= tolerance &&
+            Math.abs(a.b - b.b) <= tolerance &&
+            Math.abs(a.a - b.a) <= tolerance;
+    }
+
+    function floodFill(data, x, y, targetColor, fillColor, width, height, tolerance) {
+        const stack = [];
+        stack.push([x, y]);
+
+        while (stack.length > 0) {
+            const [currentX, currentY] = stack.pop();
+
+            if (currentX < 0 || currentX >= width || currentY < 0 || currentY >= height) continue;
+
+            const currentIndex = (currentY * width + currentX) * 4;
+            const currentPixel = {
+                r: data[currentIndex],
+                g: data[currentIndex + 1],
+                b: data[currentIndex + 2],
+                a: data[currentIndex + 3]
+            };
+
+            if (colorsMatch(currentPixel, targetColor, tolerance)) {
+                data[currentIndex] = fillColor.r;
+                data[currentIndex + 1] = fillColor.g;
+                data[currentIndex + 2] = fillColor.b;
+                data[currentIndex + 3] = fillColor.a;
+
+                stack.push([currentX + 1, currentY]);
+                stack.push([currentX - 1, currentY]);
+                stack.push([currentX, currentY + 1]);
+                stack.push([currentX, currentY - 1]);
+            }
+        }
+    }
+
+    function rgbToHex(r, g, b) {
+        return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+    }
+
+    function hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : null;
+    }
+
+// // 启动渐变动画
+// function startGradientAnimation() {
+//     if (currentColorGradient.length < 2) return;
+
+//     isAnimating = true;
+//     currentStep = 0;
+//     targetColor = currentColorGradient[currentStep + 1];
+//     animateGradient();
+// }
+
+// 动画过渡
+// function animateGradient() {
+//     if (!isAnimating) return;
+
+//     let step = 0;
+//     const totalSteps = 100;
+//     const interval = 30;
+
+//     const colorTransition = setInterval(() => {
+//         if (step > totalSteps) {
+//             clearInterval(colorTransition);
+//             currentStep++;
+//             if (currentStep < currentColorGradient.length - 1) {
+//                 targetColor = currentColorGradient[currentStep + 1];
+//                 animateGradient();
+//             } else {
+//                 isAnimating = false; // 动画完成后停止
+//             }
+//         }
+
+//         // 计算当前颜色渐变
+//         const r = Math.round(currentColor.r + (targetColor.r - currentColor.r) * (step / totalSteps));
+//         const g = Math.round(currentColor.g + (targetColor.g - currentColor.g) * (step / totalSteps));
+//         const b = Math.round(currentColor.b + (targetColor.b - currentColor.b) * (step / totalSteps));
+
+//         // 更新当前颜色
+//         currentColor = { r, g, b };
+
+//         // 更新画布色块的颜色
+//         updateCanvasColor(r, g, b); // 更新画布上颜色区域
+
+//         step++;
+//     }, interval);
+// }
+
+// // 更新画布上的色块颜色
+// function updateCanvasColor(r, g, b) {
+//     // 获取当前画布的像素数据
+//     canvasData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+//     const data = canvasData.data;
+
+//     // 假设画布上的绿色区域（例如像素值接近绿色）需要变色
+//     for (let i = 0; i < data.length; i += 4) {
+//         const red = data[i];
+//         const green = data[i + 1];
+//         const blue = data[i + 2];
+
+//         // 假设你要更改绿色区域
+//         if (green > 100 && red < 50 && blue < 50) {
+//             // 更新绿色区域的颜色
+//             data[i] = r;   // Red
+//             data[i + 1] = g; // Green
+//             data[i + 2] = b; // Blue
+//         }
+
+//         // 你可以增加更多条件来匹配其他颜色区域（例如蓝色区域或红色区域）
+//     }
+
+//     // 将修改后的数据放回画布
+//     ctx.putImageData(canvasData, 0, 0);
+// }
+
+
+    // 添加颜色匹配函数
+function matchesColor(r, g, b, targetColor) {
+    const tolerance = 30; // 容差值，可以根据需要调整
+    
+    switch(targetColor) {
+        case '孔雀绿':
+            return Math.abs(r - 30) < tolerance && 
+                   Math.abs(g - 132) < tolerance && 
+                   Math.abs(b - 73) < tolerance;
+        case '景泰蓝':
+            return Math.abs(r - 30) < tolerance && 
+                   Math.abs(g - 144) < tolerance && 
+                   Math.abs(b - 255) < tolerance;
+        case '朱雀红':
+            return Math.abs(r - 215) < tolerance && 
+                   Math.abs(g - 61) < tolerance && 
+                   Math.abs(b - 61) < tolerance;
+        default:
+            return false;
+    }
+}
+
+// 更新颜色变化函数
+function updatePixelColor(originalColor, gradientPath, progress) {
+    const totalSteps = gradientPath.length - 1;
+    const step = progress * totalSteps;
+    const currentIndex = Math.floor(step);
+    const nextIndex = Math.min(currentIndex + 1, totalSteps);
+    const stepProgress = step - currentIndex;
+
+    const current = gradientPath[currentIndex];
+    const next = gradientPath[nextIndex];
+
+    return {
+        r: Math.round(current.r + (next.r - current.r) * stepProgress),
+        g: Math.round(current.g + (next.g - current.g) * stepProgress),
+        b: Math.round(current.b + (next.b - current.b) * stepProgress)
+    };
+}
+
+// 更新烧制函数，在主画布上显示动画过程
+function burnCanvas() {
+    if (isBurning) return;
+    isBurning = true;
+    
+    // 保存烧制前的图像
+    beforeImage.src = canvas.toDataURL('image/png');
+    burnStatus.style.display = 'block';
+    comparison.style.display = 'none';
+
+    const startTime = Date.now();
+    const duration = 7000; // 7秒持续时间
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imgData.data;
+
+    // 创建像素颜色映射
+    const pixelColors = new Map();
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        
+        // 检查每个像素是否匹配三种颜色之一
+        if (matchesColor(r, g, b, '孔雀绿')) {
+            pixelColors.set(i, '孔雀绿');
+        } else if (matchesColor(r, g, b, '景泰蓝')) {
+            pixelColors.set(i, '景泰蓝');
+        } else if (matchesColor(r, g, b, '朱雀红')) {
+            pixelColors.set(i, '朱雀红');
+        }
+    }
+
+    function animate() {
+        const currentTime = Date.now();
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // 更新每个标记的像素
+        pixelColors.forEach((colorType, index) => {
+            const newColor = updatePixelColor(
+                {r: data[index], g: data[index + 1], b: data[index + 2]},
+                gradients[colorType],
+                progress
+            );
+            
+            data[index] = newColor.r;
+            data[index + 1] = newColor.g;
+            data[index + 2] = newColor.b;
+        });
+
+        // 直接在主画布上更新颜色变化
+        ctx.putImageData(imgData, 0, 0);
+
+        if (progress < 1) {
+            requestAnimationFrame(animate);
+        } else {
+            // 动画结束
+            afterImage.src = canvas.toDataURL('image/png');
+            comparison.style.display = 'flex';
+            burnStatus.style.display = 'none';
+            isBurning = false;
+        }
+    }
+
+    requestAnimationFrame(animate);
+}
+     // 上传图片
+     upload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            img = new Image();
+            img.onload = function() {
+                saveHistory();
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+            }
+            img.src = event.target.result;
+        }
+        reader.readAsDataURL(file);
+    });
+
+    // 移除这些不再需要的函数
+// startGradientAnimation()
+// animateGradient()
+// updateCanvasColor()
+
+// 修改颜色按钮的事件监听器，只改变画笔颜色
+color1Btn.addEventListener('click', () => {
+    colorPicker.value = '#1E8449'; // 孔雀绿
+});
+
+color2Btn.addEventListener('click', () => {
+    colorPicker.value = '#1E90FF'; // 景泰蓝
+});
+
+color3Btn.addEventListener('click', () => {
+    colorPicker.value = '#D73D3D'; // 朱雀红
+});
+
+
+
+    paintBtn.addEventListener('click', () => {
+        mode = 'paint';
+        canvas.style.cursor = 'crosshair';
+    });
+
+    fillBtn.addEventListener('click', () => {
+        mode = 'fill';
+        canvas.style.cursor = 'crosshair';
+    });
+
+    eraserBtn.addEventListener('click', () => {
+        mode = 'erase';
+        canvas.style.cursor = 'default';
+    });
+
+    undoBtn.addEventListener('click', undo);
+
+    saveBtn.addEventListener('click', () => {
+        const dataURL = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = dataURL;
+        link.download = 'edited_image.png';
+        link.click();
+    });
+
+    closeWireBtn.addEventListener('click', () => {
+        canvas.toBlob((blob) => {
+            const formData = new FormData();
+            formData.append('image', blob, 'image.png');
+
+            fetch('http://127.0.0.1:5000', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.blob())
+            .then(blob => {
+                const url = URL.createObjectURL(blob);
+                img = new Image();
+                img.onload = function() {
+                    saveHistory();
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    URL.revokeObjectURL(url);
+                };
+                img.src = url;
+            })
+            .catch(err => console.error('掐丝处理失败:', err));
+        }, 'image/png');
+    });
+
+    burnBtn.addEventListener('click', burnCanvas); // 绑定烧制按钮
+
+images.forEach(img => {
+    img.addEventListener('click', (e) => {
+        // 创建新的图片对象
+        const newImg = new Image();
+        
+        // 图片加载成功后的处理
+        newImg.onload = () => {
+            // 保存当前状态到历史记录
+            saveHistory();
+            
+            // 计算图片缩放比例，保持宽高比
+            const scale = Math.min(
+                (canvas.width ) / newImg.width,
+                (canvas.height) / newImg.height
+            );
+            
+            // 计算居中位置
+            const centerX = (canvas.width - newImg.width * scale) / 2;
+            const centerY = (canvas.height - newImg.height * scale) / 2;
+            
+            // 清除画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制图片到画布上
+            ctx.drawImage(
+                newImg,
+                centerX,
+                centerY,
+                newImg.width * scale,
+                newImg.height * scale
+            );
+            
+            console.log('图片已成功加载到画布');
+        };
+        
+        // 图片加载失败的处理
+        newImg.onerror = () => {
+            console.error('图片加载失败:', e.target.src);
+            alert('图片加载失败，请检查图片路径是否正确');
+        };
+        
+        // 设置图片源
+        newImg.src = e.target.src;
+        
+        // 输出调试信息
+        console.log('尝试加载图片:', e.target.src);
+    });
+});
+
+// 确保画布尺寸合适
+function initCanvas() {
+    // 设置画布的初始尺寸（如果还没有设置的话）
+    if (!canvas.width) canvas.width = 800;
+    if (!canvas.height) canvas.height = 600;
+    
+    // 设置画布的背景色
+    ctx.fillStyle = '#F2E4CE';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+// 初始化画布
+initCanvas();
+
+// 保存历史记录的函数（如果还没有定义的话）
+function saveHistory() {
+    if (typeof history !== 'undefined') {
+        if (history.length >= maxHistoryLength) history.shift();
+        history.push(canvas.toDataURL());
+    }
+}
+</script>
+
+</body>
+</html>
