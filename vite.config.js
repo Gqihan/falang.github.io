@@ -22,4 +22,5 @@ export default defineConfig({
     open: true //启动后是否自动打开浏览器
 
   },
+  base: '/falang.github.io/', // 替换为你的 GitHub 仓库名称
 })
